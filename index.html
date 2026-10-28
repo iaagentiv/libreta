@@ -267,6 +267,14 @@ label.btn{cursor:pointer}
 .rate-row{display:flex;align-items:center;gap:8px;flex:1 1 220px;padding:0 14px;border:1.5px solid var(--line);border-radius:12px;background:var(--sheet);font-family:var(--f-mono);font-size:13px;font-stretch:87.5%}
 .rate-row input{flex:1;min-width:0;border:0;background:transparent;font-family:var(--f-display);font-size:18px;font-weight:700;padding:11px 0;outline:none;color:var(--ink)}
 .rate-row:focus-within{border-color:var(--accent)}
+.switch-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 14px;border:1.5px solid var(--line);border-radius:12px;background:var(--sheet);cursor:pointer}
+.switch-row>span{display:flex;flex-direction:column;gap:2px;min-width:0}
+.switch-row b{font-weight:700;font-size:15px}
+input[role="switch"]{-webkit-appearance:none;appearance:none;flex:none;width:50px;height:30px;margin:0;border-radius:99px;background:var(--line);position:relative;cursor:pointer;transition:background .2s}
+input[role="switch"]::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:var(--sheet);box-shadow:var(--shadow-sm);transition:transform .2s}
+input[role="switch"]:checked{background:var(--accent)}
+input[role="switch"]:checked::after{transform:translateX(20px)}
+@media (prefers-reduced-motion:reduce){input[role="switch"],input[role="switch"]::after{transition:none}}
 .set-list{display:flex;flex-direction:column}
 .set-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid var(--line-soft)}
 .set-row input{width:100%;min-width:0;border:1.5px solid transparent;background:transparent;border-radius:9px;padding:9px 8px;font-size:16px;color:var(--ink)}
@@ -443,6 +451,7 @@ label.btn{cursor:pointer}
     </div>
     <div class="block" style="border-top:0;padding-top:0">
       <h2>Cambio de francos a euros</h2>
+      <label class="switch-row" for="rateAuto"><span><b>Actualizar solo cada día</b><span class="hint">Cambio oficial del Banco Central Europeo</span></span><input type="checkbox" id="rateAuto" role="switch"></label>
       <form class="rate-form" id="rateForm" novalidate>
         <label class="rate-row" for="rateInput"><span>1 CHF =</span><input id="rateInput" inputmode="decimal" autocomplete="off"><span>€</span></label>
         <button class="btn btn-primary" type="submit" id="rateSave">Guardar</button>
@@ -606,7 +615,7 @@ var DEF_CATS = [
   {id: "oti", n: "Otros ingresos", t: "i", grp: "N", col: 11}
 ];
 function defaultSettings(){
-  return {v: 1, rate: DEF_RATE, rateDate: DEF_RATE_DATE, cats: DEF_CATS.map(function(c){ return Object.assign({b: null, bex: false}, c); })};
+  return {v: 1, rate: DEF_RATE, rateDate: DEF_RATE_DATE, auto: true, rateSrc: "inicial", cats: DEF_CATS.map(function(c){ return Object.assign({b: null, bex: false}, c); })};
 }
 var NONE = {id: "__none", n: "Sin categoría", t: "g", grp: "D", col: 11, b: null, bex: false};
 
@@ -620,6 +629,8 @@ function normSettings(d){
   if (!d || typeof d !== "object") return s;
   if (typeof d.rate === "number" && isFinite(d.rate) && d.rate > 0) s.rate = d.rate;
   if (typeof d.rateDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d.rateDate)) s.rateDate = d.rateDate;
+  s.auto = d.auto !== false;
+  if (d.rateSrc === "ecb" || d.rateSrc === "manual") s.rateSrc = d.rateSrc;
   if (Array.isArray(d.cats) && d.cats.length){
     s.cats = d.cats.filter(function(c){ return c && typeof c.id === "string"; }).map(function(c){
       return {id: c.id, n: String(c.n || "Sin nombre").slice(0, 40), t: c.t === "i" ? "i" : "g", grp: c.grp === "D" ? "D" : "N", col: colIdx(c.col), b: (typeof c.b === "number" && c.b > 0) ? c.b : null, bex: !!c.bex};
@@ -725,7 +736,7 @@ function onSnap(snap){
   S.hasGoals = !!goals; S.goals = normGoals(goals);
   S.months = months; S.raw = raw; S.phase = "ready"; retries = 0;
   render();
-  if (firstSnap){ firstSnap = false; if (st && st.kind === "tx" && !$("#sheet").hidden) buildTx(); }
+  if (firstSnap){ firstSnap = false; if (st && st.kind === "tx" && !$("#sheet").hidden) buildTx(); setTimeout(function(){ updateRate(false); }, 400); }
 }
 function onSnapErr(e){
   var code = e && e.code;
@@ -1043,10 +1054,11 @@ function renderMetas(){
 var ajPending = false;
 function renderAjustes(){
   var ae = document.activeElement;
-  if (ae && ae.tagName === "INPUT" && $("#v-ajustes").contains(ae)){ ajPending = true; return; }
+  if (ae && ae.tagName === "INPUT" && ae.type !== "checkbox" && $("#v-ajustes").contains(ae)){ ajPending = true; return; }
   ajPending = false;
   $("#rateInput").value = fIn4.format(S.settings.rate);
-  $("#rateHint").textContent = "Cambio guardado el " + dmy(S.settings.rateDate) + ". Se aplica a los apuntes nuevos en francos; los anteriores conservan el cambio con el que se apuntaron.";
+  $("#rateAuto").checked = !!S.settings.auto;
+  updRateHint();
   var lb = LS.get("lastBackup");
   $("#bkInfo").textContent = lb ? "Última copia: " + dmy(lb) + "." : "Aún no has hecho ninguna copia.";
   fill($("#setCatsG"), catsOf("g").map(setRow));
@@ -1462,9 +1474,18 @@ function wire(){
     e.preventDefault();
     var v = parseNum($("#rateInput").value, 4);
     if (!(v > 0) || v > 100){ toastErr("Escribe un cambio válido, por ejemplo 1,0817."); return; }
-    S.settings.rate = v; S.settings.rateDate = todayStr();
+    S.settings.rate = v; S.settings.rateDate = todayStr(); S.settings.auto = false; S.settings.rateSrc = "manual";
     $("#rateInput").blur(); render();
     saveSettings().then(function(){ stampToast("Guardado", "1 CHF = " + fRate.format(v) + " €"); }, function(err){ toastErr(errMsg(err)); });
+  });
+  $("#rateAuto").addEventListener("change", function(e){
+    S.settings.auto = !!e.target.checked;
+    updRateHint();
+    saveSettings().catch(function(err){ toastErr(errMsg(err)); });
+    if (S.settings.auto) updateRate(true).then(function(ok){
+      if (ok) stampToast("Actualizado", "1 CHF = " + fRate.format(S.settings.rate) + " € · BCE");
+      else toastErr("No se ha podido consultar el cambio ahora. Se volverá a intentar al abrir la libreta.");
+    });
   });
   $("#addCatG").addEventListener("submit", function(e){ e.preventDefault(); addCat("g", $("#newCatG")); });
   $("#addCatI").addEventListener("submit", function(e){ e.preventDefault(); addCat("i", $("#newCatI")); });
@@ -1472,6 +1493,51 @@ function wire(){
   $("#scrim").addEventListener("click", closeSheet);
   $("#sheetClose").addEventListener("click", closeSheet);
   document.addEventListener("keydown", function(e){ if (e.key === "Escape" && !$("#sheet").hidden) closeSheet(); });
+}
+
+/* ---------- Cambio automático CHF→EUR (BCE, vía Frankfurter) ---------- */
+var RATE_URLS = ["https://api.frankfurter.dev/v2/providers/ECB/rate/CHF/EUR", "https://api.frankfurter.dev/v1/latest?base=CHF&symbols=EUR"];
+var rateBusy = false;
+function updRateHint(){
+  var el = $("#rateHint"); if (!el) return;
+  var s = S.settings, txt;
+  if (!s.auto) txt = "Cambio puesto a mano el " + dmy(s.rateDate) + ". Activa «Actualizar solo cada día» para usar el del Banco Central Europeo.";
+  else if (s.rateSrc === "ecb") txt = "Cambio oficial del BCE del " + dmy(s.rateDate) + ". Se actualiza solo cuando abres la libreta con conexión.";
+  else txt = "Cambio del " + dmy(s.rateDate) + ". Se pondrá el del BCE la próxima vez que abras la libreta con conexión.";
+  var err = Number(LS.get("rateErr")) || 0, ok = Number(LS.get("rateCheck")) || 0;
+  if (s.auto && err > ok) txt += " La última vez no se pudo consultar; se volverá a intentar.";
+  el.textContent = txt + " Si escribes un cambio a mano, la actualización automática se desactiva. Los apuntes ya hechos conservan el cambio con el que se apuntaron.";
+}
+function parseRate(o){
+  if (!o || typeof o !== "object") return null;
+  var r = typeof o.rate === "number" ? o.rate : (o.rates && typeof o.rates.EUR === "number" ? o.rates.EUR : NaN);
+  var d = (typeof o.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(o.date)) ? o.date : null;
+  return (r > 0.3 && r < 3 && d) ? {rate: r, date: d} : null;
+}
+function fetchRate(i){
+  if (i >= RATE_URLS.length) return Promise.reject(new Error("sin cambio"));
+  var ctl = typeof AbortController === "function" ? new AbortController() : null;
+  var timer = setTimeout(function(){ if (ctl) ctl.abort(); }, 8000);
+  return fetch(RATE_URLS[i], {cache: "no-store", signal: ctl ? ctl.signal : undefined})
+    .then(function(r){ if (!r.ok) throw new Error("http " + r.status); return r.json(); })
+    .then(function(o){ clearTimeout(timer); var x = parseRate(o); if (!x) throw new Error("formato"); return x; })
+    .catch(function(){ clearTimeout(timer); return fetchRate(i + 1); });
+}
+function updateRate(force){
+  if (!col || S.volatile || S.phase !== "ready" || !S.settings.auto || rateBusy) return Promise.resolve(false);
+  if (!force && Date.now() - (Number(LS.get("rateCheck")) || 0) < 6 * 3600 * 1000) return Promise.resolve(false);
+  if (navigator.onLine === false) return Promise.resolve(false);
+  rateBusy = true;
+  return fetchRate(0).then(function(x){
+    LS.set("rateCheck", String(Date.now()));
+    if (!S.settings.auto) return false;
+    if (Math.abs(x.rate - S.settings.rate) < 1e-7 && x.date === S.settings.rateDate && S.settings.rateSrc === "ecb"){ updRateHint(); return true; }
+    S.settings.rate = x.rate; S.settings.rateDate = x.date; S.settings.rateSrc = "ecb";
+    render();
+    return saveSettings().then(function(){ return true; }, function(){ return true; });
+  }, function(){
+    LS.set("rateErr", String(Date.now())); updRateHint(); return false;
+  }).then(function(v){ rateBusy = false; return v; });
 }
 
 /* ---------- Almacén local (los datos nunca salen del dispositivo) ---------- */
@@ -1537,6 +1603,8 @@ function boot(){
   S.volatile = !store.available;
   col = store;
   subscribe();
+  document.addEventListener("visibilitychange", function(){ if (!document.hidden) updateRate(false); });
+  window.addEventListener("online", function(){ updateRate(false); });
   try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function(){}); } catch (e){}
   if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1")){
     window.addEventListener("load", function(){ navigator.serviceWorker.register("sw.js").catch(function(){}); });

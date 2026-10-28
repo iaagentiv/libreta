@@ -1,6 +1,7 @@
 /* Libreta · permite abrir la app sin conexión.
-   Sirve lo guardado al instante y lo actualiza en segundo plano cuando hay red. */
-var CACHE = "libreta-v1";
+   Sirve lo guardado al instante y lo actualiza en segundo plano cuando hay red.
+   La consulta del tipo de cambio va siempre directa a la red: nunca se guarda aquí. */
+var CACHE = "libreta-v2";
 var SHELL = ["./", "index.html", "manifest.webmanifest", "icon-180.png", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", function (e) {
@@ -24,6 +25,10 @@ self.addEventListener("activate", function (e) {
 self.addEventListener("fetch", function (e) {
   var req = e.request;
   if (req.method !== "GET") return;
+  var url = new URL(req.url);
+  var sameSite = url.origin === self.location.origin;
+  var fonts = url.hostname === "fonts.googleapis.com" || url.hostname === "fonts.gstatic.com";
+  if (!sameSite && !fonts) return;
   e.respondWith(
     caches.open(CACHE).then(function (c) {
       return c.match(req, { ignoreSearch: true }).then(function (hit) {
