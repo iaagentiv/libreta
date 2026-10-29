@@ -220,6 +220,19 @@ label.btn{cursor:pointer}
 .mov .v small{display:block;font-size:10.5px;color:var(--muted);font-weight:400}
 .mov .v.i{color:var(--inc)}
 .mov .v.a{color:var(--stamp)}
+.mov.static{cursor:default}
+.inbox-chip{display:flex;align-items:center;gap:12px;width:100%;padding:11px 14px;border-radius:12px;border:1.5px solid var(--line);background:var(--sheet);color:var(--ink);text-align:left}
+.inbox-chip:hover{border-color:var(--accent)}
+.inbox-chip svg{width:22px;height:22px;flex:none;fill:none;stroke:var(--accent);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.inbox-chip span{display:flex;flex-direction:column;gap:1px;min-width:0}
+.inbox-chip b{font-weight:700;font-size:14.5px}
+.inbox-chip small{font-size:12px;color:var(--muted)}
+.mono{font-family:var(--f-mono);font-size:12px;font-stretch:87.5%;overflow-wrap:anywhere}
+.preview{display:flex;flex-direction:column}
+.raw-list{display:flex;flex-direction:column;gap:6px}
+.raw{font-family:var(--f-mono);font-size:11.5px;font-stretch:87.5%;line-height:1.5;color:var(--ink-2);overflow-wrap:anywhere;padding:8px 10px;background:var(--paper);border-radius:8px}
+.raw i{font-style:normal;color:var(--bad)}
+.list-text{width:100%;min-height:220px;padding:10px 12px;border-radius:12px;border:1.5px solid var(--line);background:var(--paper);color:var(--ink);font-family:var(--f-mono);font-size:16px;line-height:1.5;resize:vertical}
 
 /* Botones */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:0 18px;border-radius:13px;font-weight:750;font-size:15px;line-height:1.1;text-align:center}
@@ -376,6 +389,10 @@ input[role="switch"]:checked::after{transform:translateX(20px)}
     <p><b>Haz una copia de seguridad.</b> Tus apuntes solo están guardados en este iPhone. Guarda una copia en Archivos o en iCloud por si cambias de móvil o se borra la app.</p>
     <div class="bk-actions"><button class="btn btn-stamp" id="bkNow" type="button">Hacer copia</button><button class="link" id="bkLater" type="button">Más tarde</button></div>
   </div>
+  <button class="inbox-chip" id="inboxChip" type="button" hidden>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5v8.5M8.5 8.5l3.5 3.5 3.5-3.5"/><path d="M7.5 9.5H7a1.5 1.5 0 0 0-1.4 1L4 14.5V19a1.5 1.5 0 0 0 1.5 1.5h13A1.5 1.5 0 0 0 20 19v-4.5l-1.6-4a1.5 1.5 0 0 0-1.4-1h-.5"/><path d="M4 14.5h4.2l1.3 2h5l1.3-2H20"/></svg>
+    <span><b>Traer apuntes del atajo</b><small id="inboxChipSub"></small></span>
+  </button>
 
   <section class="view" id="v-resumen" aria-labelledby="heroLabel">
     <div class="hero">
@@ -469,6 +486,14 @@ input[role="switch"]:checked::after{transform:translateX(20px)}
       <form class="add-form" id="addCatI" novalidate><input id="newCatI" placeholder="Nueva fuente de ingreso" maxlength="40" autocomplete="off" aria-label="Nueva fuente de ingreso"><button class="btn btn-ghost" type="submit">Añadir</button></form>
     </div>
     <div class="block">
+      <h2>Atajo de iPhone</h2>
+      <p class="hint">Con un atajo puedes apuntar sin abrir la libreta. El atajo guarda cada apunte en un archivo de iCloud Drive y aquí lo traes a la libreta cuando quieras.</p>
+      <button class="btn btn-ghost btn-block" type="button" id="copyList">Copiar la lista de categorías para el atajo</button>
+      <button class="btn btn-primary btn-block" type="button" id="inboxBtn">Traer apuntes del atajo</button>
+      <p class="hint" id="inboxInfo"></p>
+      <p class="hint">El atajo escribe una línea por apunte, en este orden y separado por punto y coma: <span class="mono">fecha;categoría;importe;moneda;concepto</span></p>
+    </div>
+    <div class="block">
       <h2>Tus datos</h2>
       <p class="hint">Tus apuntes se guardan solo en este dispositivo y no se envían a ningún sitio. Haz copias de seguridad para no perderlos si cambias de iPhone o borras la app.</p>
       <p class="hint" id="bkInfo"></p>
@@ -484,6 +509,7 @@ input[role="switch"]:checked::after{transform:translateX(20px)}
     </div>
   </section>
 </main>
+<input type="file" id="inboxFile" class="sr" accept=".txt,text/plain" tabindex="-1" aria-hidden="true">
 
 <nav class="tabs" aria-label="Secciones">
   <div class="wrap tabs-in">
@@ -620,7 +646,7 @@ function defaultSettings(){
 var NONE = {id: "__none", n: "Sin categoría", t: "g", grp: "D", col: 11, b: null, bex: false};
 
 /* ---------- Estado ---------- */
-var S = {phase: "loading", settings: defaultSettings(), hasSettings: false, goals: {}, hasGoals: false, months: {}, raw: {}, view: "resumen", month: thisMonth(), filter: "all", q: ""};
+var S = {phase: "loading", settings: defaultSettings(), hasSettings: false, goals: {}, hasGoals: false, months: {}, raw: {}, inbox: {seen: {}, last: 0}, view: "resumen", month: thisMonth(), filter: "all", q: ""};
 var col = null, unsub = null, dlNs = null, retries = 0, firstSnap = true, st = null;
 
 function colIdx(c){ c = Math.round(Number(c)); return isFinite(c) ? ((c % 12) + 12) % 12 : 11; }
@@ -719,12 +745,13 @@ function retry(fn){ return fn().catch(function(e){ if (e && e.code === "unavaila
 function noDb(){ return Promise.reject({code: "not_granted"}); }
 
 function onSnap(snap){
-  var settings = null, goals = null, months = {}, raw = {};
+  var settings = null, goals = null, inbox = null, months = {}, raw = {};
   snap.docs.forEach(function(doc){
     if (!doc.exists) return;
     var d = doc.data() || {};
     if (doc.id === "settings") settings = d;
     else if (doc.id === "goals") goals = d;
+    else if (doc.id === "inbox") inbox = d;
     else if (/^m-\d{4}-\d{2}$/.test(doc.id)){
       var mk = doc.id.slice(2), map = (d.tx && typeof d.tx === "object") ? d.tx : {}, arr = [];
       raw[mk] = map;
@@ -734,6 +761,7 @@ function onSnap(snap){
   });
   S.hasSettings = !!settings; S.settings = normSettings(settings);
   S.hasGoals = !!goals; S.goals = normGoals(goals);
+  S.inbox = normInbox(inbox);
   S.months = months; S.raw = raw; S.phase = "ready"; retries = 0;
   render();
   if (firstSnap){ firstSnap = false; if (st && st.kind === "tx" && !$("#sheet").hidden) buildTx(); setTimeout(function(){ updateRate(false); }, 400); }
@@ -867,6 +895,9 @@ function renderBanners(){
   var last = LS.get("lastBackup"), later = LS.get("bkSnooze");
   var due = S.phase === "ready" && !S.volatile && txCount() > 0 && (!last || daysSince(last) > 30) && (!later || daysSince(later) > 14);
   $("#bkBanner").hidden = !(due && S.view === "resumen");
+  var chip = $("#inboxChip");
+  chip.hidden = !(S.phase === "ready" && S.inbox.last > 0 && S.view === "resumen");
+  if (!chip.hidden) $("#inboxChipSub").textContent = "Última vez: " + whenText(S.inbox.last);
 }
 function txCount(){ return Object.keys(S.months).reduce(function(n, mk){ return n + S.months[mk].length; }, 0); }
 function daysSince(ds){ var t = new Date(+ds.slice(0, 4), +ds.slice(5, 7) - 1, +ds.slice(8, 10)); return (Date.now() - t.getTime()) / 86400000; }
@@ -1063,6 +1094,8 @@ function renderAjustes(){
   $("#bkInfo").textContent = lb ? "Última copia: " + dmy(lb) + "." : "Aún no has hecho ninguna copia.";
   fill($("#setCatsG"), catsOf("g").map(setRow));
   fill($("#setCatsI"), catsOf("i").map(setRow));
+  var nIn = Object.keys(S.inbox.seen).filter(function(k){ return S.inbox.seen[k] === 1; }).length;
+  $("#inboxInfo").textContent = S.inbox.last ? "Última vez: " + whenText(S.inbox.last) + ". Has traído " + (nIn === 1 ? "1 apunte" : nIn + " apuntes") + " del atajo." : "Aún no has traído apuntes del atajo.";
 }
 function setRow(c){
   var input = h("input", {id: "cat-" + c.id, value: c.n, maxlength: "40", autocomplete: "off", "aria-label": "Nombre de " + c.n});
@@ -1392,7 +1425,7 @@ function readBackup(file){
     Object.keys(o.docs).forEach(function(id){
       var d = o.docs[id];
       if (!d || typeof d !== "object" || Array.isArray(d)) return;
-      if (id === "settings" || id === "goals" || /^m-\d{4}-\d{2}$/.test(id)){
+      if (id === "settings" || id === "goals" || id === "inbox" || /^m-\d{4}-\d{2}$/.test(id)){
         docs[id] = d;
         if (id.charAt(0) === "m" && d.tx && typeof d.tx === "object") n += Object.keys(d.tx).length;
       }
@@ -1417,6 +1450,238 @@ function openRestore(docs, n, date){
     ok,
     h("button", {class: "btn btn-ghost btn-block", type: "button", onclick: function(){ closeSheet(); }}, "Cancelar")));
   showSheet("Restaurar copia");
+}
+
+/* ---------- Atajo de iPhone: apuntes que llegan en un archivo de iCloud Drive ---------- */
+function normInbox(d){
+  var o = {seen: {}, last: 0};
+  if (d && typeof d === "object"){
+    if (d.seen && typeof d.seen === "object" && !Array.isArray(d.seen)) o.seen = d.seen;
+    if (typeof d.last === "number" && isFinite(d.last)) o.last = d.last;
+  }
+  return o;
+}
+function whenText(ms){
+  var x = new Date(ms), ds = x.getFullYear() + "-" + pad(x.getMonth() + 1) + "-" + pad(x.getDate()), hm = pad(x.getHours()) + ":" + pad(x.getMinutes());
+  if (ds === todayStr()) return "hoy, " + hm;
+  if (ds === offsetDate(-1)) return "ayer, " + hm;
+  return dmy(ds) + ", " + hm;
+}
+function fold(x){ return String(x == null ? "" : x).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim(); }
+function cyrb53(str){
+  var h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  for (var i = 0, ch; i < str.length; i++){ ch = str.charCodeAt(i); h1 = Math.imul(h1 ^ ch, 2654435761); h2 = Math.imul(h2 ^ ch, 1597334677); }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507); h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507); h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+}
+var MONTHS = {ene: 1, enero: 1, jan: 1, january: 1, feb: 2, febrero: 2, february: 2, mar: 3, marzo: 3, march: 3, abr: 4, abril: 4, apr: 4, april: 4,
+  may: 5, mayo: 5, jun: 6, junio: 6, june: 6, jul: 7, julio: 7, july: 7, ago: 8, agosto: 8, aug: 8, august: 8, sep: 9, sept: 9, septiembre: 9, setiembre: 9,
+  september: 9, oct: 10, octubre: 10, october: 10, nov: 11, noviembre: 11, november: 11, dic: 12, diciembre: 12, dec: 12, december: 12};
+/* Entiende ISO 8601 (2026-10-29T10:33:00+01:00), 29/10/26 10:33, 29 oct 2026, 10:33 y «jueves, 29 de octubre de 2026» */
+function parseLooseDate(str){
+  var s = fold(str).replace(/^[a-z]+,\s*/, ""), m, y, mo, d;
+  if ((m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))){ y = +m[1]; mo = +m[2]; d = +m[3]; }
+  else if ((m = s.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})/))){ d = +m[1]; mo = +m[2]; y = +m[3]; if (y < 100) y += 2000; if (mo > 12 && d <= 12){ var sw = d; d = mo; mo = sw; } }
+  else if ((m = s.match(/^(\d{1,2})\.?\s+(?:de\s+)?([a-z]+)\.?,?\s+(?:de\s+)?(\d{4})/))){ d = +m[1]; mo = MONTHS[m[2]]; y = +m[3]; }
+  else if ((m = s.match(/^([a-z]+)\.?\s+(\d{1,2}),?\s+(\d{4})/))){ mo = MONTHS[m[1]]; d = +m[2]; y = +m[3]; }
+  else return null;
+  if (!mo || y < 2000 || y > 2100) return null;
+  var probe = new Date(y, mo - 1, d);
+  if (probe.getFullYear() !== y || probe.getMonth() !== mo - 1 || probe.getDate() !== d) return null;
+  var t = s.slice(m[0].length).match(/(\d{1,2})[:.](\d{2})(?:[:.](\d{2}))?\s*(a\.?\s?m|p\.?\s?m)?/), ts = null;
+  if (t){
+    var hh = +t[1], mi = +t[2], ss = t[3] ? +t[3] : 0, ap = t[4] ? t[4].charAt(0) : "";
+    if (ap === "p" && hh < 12) hh += 12;
+    if (ap === "a" && hh === 12) hh = 0;
+    if (hh < 24 && mi < 60 && ss < 60) ts = new Date(y, mo - 1, d, hh, mi, ss).getTime();
+  }
+  return {d: y + "-" + pad(mo) + "-" + pad(d), ts: ts};
+}
+function parseCur(x){
+  var f = fold(x).replace(/[\s.]/g, "");
+  if (!f || f.length > 12) return null;
+  if (/chf|franc/.test(f) || /^s?fr$/.test(f)) return "CHF";
+  if (/eur|€/.test(f) || f === "e") return "EUR";
+  return null;
+}
+var TYPEW = {gasto: "g", gastos: "g", ingreso: "i", ingresos: "i", ahorro: "a", ahorros: "a", aportacion: "a"};
+function parseCatField(x){
+  var raw = String(x || "").trim(), k = raw.indexOf(":");
+  if (k > 0){ var w = TYPEW[fold(raw.slice(0, k))]; if (w) return {t: w, name: raw.slice(k + 1).trim()}; }
+  if (TYPEW[fold(raw)]) return {t: TYPEW[fold(raw)], name: ""};
+  return {t: null, name: raw};
+}
+function findCatByName(t, key, plan){
+  var list = catsOf(t).concat(plan.newCats.filter(function(c){ return c.t === t; }));
+  for (var i = 0; i < list.length; i++) if (fold(list[i].n) === key) return list[i];
+  return null;
+}
+function findGoalByName(key){
+  var ids = Object.keys(S.goals);
+  for (var i = 0; i < ids.length; i++) if (fold(S.goals[ids[i]].n) === key) return ids[i];
+  return null;
+}
+function inboxDefCur(){ return LS.get("cur") === "CHF" ? "CHF" : "EUR"; }
+function parseInboxLine(line, plan, idx){
+  var parts = line.split(";").map(function(p){ return p.trim(); });
+  if (fold(parts[0]) === "libreta") parts.shift();
+  var date = parseLooseDate(parts[0] || "");
+  if (date) parts.shift();
+  else if (/\d/.test(parts[0] || "")) return {err: "No se reconoce la fecha."};
+  else date = {d: todayStr(), ts: null};
+  if (parts.length < 2) return {err: "Faltan la categoría o el importe."};
+  var pc = parseCatField(parts[0]), amtField = parts[1], curField = parts.length > 2 ? parts[2] : "";
+  var cur = parseCur(curField), noteFrom = 3;
+  if (!cur){
+    cur = /chf|franc|\bs?fr\b/i.test(amtField) ? "CHF" : (/€|eur/i.test(amtField) ? "EUR" : inboxDefCur());
+    if (curField !== "") noteFrom = 2;
+  }
+  var a = parseNum(amtField.replace(/chf|euros?|eur|francos?|s?fr\.?|€/gi, ""), 2);
+  if (!(a > 0) || a >= 1e9) return {err: "No se reconoce el importe."};
+  var key = fold(pc.name), t = pc.t, cat = "", goal = "";
+  if (!t){
+    if (findCatByName("g", key, plan)) t = "g";
+    else if (findCatByName("i", key, plan)) t = "i";
+    else if (key === "sin meta" || findGoalByName(key)) t = "a";
+    else t = "g";
+  }
+  if (t === "a"){
+    if (key && key !== "sin meta"){
+      goal = findGoalByName(key) || "";
+      if (!goal && plan.noGoal.indexOf(pc.name) < 0) plan.noGoal.push(pc.name);
+    }
+  } else {
+    if (!key) return {err: "Falta la categoría."};
+    var c = findCatByName(t, key, plan);
+    if (!c){
+      var used = {}, colr = -1;
+      S.settings.cats.concat(plan.newCats).forEach(function(x){ used[x.col] = 1; });
+      for (var k = 0; k < 12; k++) if (!used[k]){ colr = k; break; }
+      if (colr < 0) colr = (S.settings.cats.length + plan.newCats.length) % 12;
+      c = {id: "c" + newId() + idx, n: pc.name.slice(0, 40), t: t, grp: t === "g" ? "D" : "N", col: colr, b: null, bex: false};
+      plan.newCats.push(c);
+    }
+    cat = c.id;
+  }
+  return {tx: {t: t, a: a, c: cur, b: cur === "CHF" ? round2(a * S.settings.rate) : a, cat: cat, goal: goal, d: date.d,
+    n: parts.slice(noteFrom).join(";").trim().slice(0, 80), ts: date.ts || (Date.now() + idx), ex: false}};
+}
+function planInbox(text){
+  var plan = {fresh: [], dup: 0, bad: [], newCats: [], noGoal: [], lines: 0}, have = {}, occ = {};
+  Object.keys(S.months).forEach(function(mk){ S.months[mk].forEach(function(t){ have[t.id] = 1; }); });
+  String(text || "").replace(/^﻿/, "").split(/\r\n|\r|\n/).forEach(function(rawLine, idx){
+    var line = rawLine.trim();
+    if (!line) return;
+    plan.lines++;
+    occ[line] = (occ[line] || 0) + 1;
+    var id = "s" + cyrb53(line).toString(36) + (occ[line] > 1 ? "-" + occ[line] : "");
+    var seen = S.inbox.seen[id];
+    if (have[id] || seen === 1){ plan.dup++; return; }
+    if (seen === 2) return;
+    var r = parseInboxLine(line, plan, idx);
+    if (r.err) plan.bad.push({id: id, raw: line, why: r.err});
+    else { r.tx.id = id; plan.fresh.push(r.tx); }
+  });
+  return plan;
+}
+function planCat(t, plan){
+  var c = catById(t.cat);
+  if (!c) for (var i = 0; i < plan.newCats.length; i++) if (plan.newCats[i].id === t.cat) c = plan.newCats[i];
+  return c;
+}
+function previewRow(t, plan){
+  var isA = t.t === "a", g = isA ? S.goals[t.goal] : null, c = isA ? null : planCat(t, plan);
+  var label = isA ? (g ? "Ahorro · " + g.n : "Ahorro sin meta") : (c ? c.n : "Sin categoría");
+  var color = isA ? (g ? cvar(g.col) : "var(--stamp)") : cvar(c ? c.col : 11);
+  return h("div", {class: "mov static"}, dot(color, isA), h("span", {class: "c"}, t.n || label),
+    h("span", {class: "s"}, dayName(t.d) + " · " + (t.n ? label : (t.t === "i" ? "Ingreso" : isA ? "Ahorro" : "Gasto"))),
+    h("span", {class: "v " + t.t}, (t.t === "i" ? "+" : "−") + money(t.a, t.c), t.c === "CHF" ? h("small", null, "≈ " + eur(t.b)) : null));
+}
+function pickInbox(){ var i = $("#inboxFile"); i.value = ""; i.click(); }
+function readInbox(file){
+  if (file.size > 5 * 1024 * 1024){ toastErr("Ese archivo es demasiado grande para ser el del atajo."); return; }
+  var fr = new FileReader();
+  fr.onload = function(){ openInboxReview(planInbox(String(fr.result || ""))); };
+  fr.onerror = function(){ toastErr("No se ha podido leer el archivo."); };
+  fr.readAsText(file);
+}
+function plural(k, one, many){ return k + " " + (k === 1 ? one : many); }
+function openInboxReview(plan){
+  st = {kind: "inbox"};
+  var n = plan.fresh.length, kids = [];
+  if (!plan.lines) kids.push(h("p", {class: "lead"}, "El archivo está vacío. Usa el atajo para apuntar algo y vuelve a traerlo."));
+  else if (n) kids.push(h("p", {class: "lead"}, plural(n, "apunte nuevo", "apuntes nuevos") + (plan.dup ? ". " + plural(plan.dup, "ya se había traído antes", "ya se habían traído antes") + "." : ".")));
+  else kids.push(h("p", {class: "lead"}, plan.bad.length ? "No hay apuntes nuevos que se puedan guardar." : "No hay apuntes nuevos: todo lo de este archivo ya se había traído antes."));
+  if (n){
+    var sorted = plan.fresh.slice().sort(function(a, b){ return a.d < b.d ? 1 : a.d > b.d ? -1 : b.ts - a.ts; });
+    kids.push(h("div", {class: "preview"}, sorted.slice(0, 40).map(function(t){ return previewRow(t, plan); })));
+    if (sorted.length > 40) kids.push(h("p", {class: "fine"}, "Y " + (sorted.length - 40) + " más."));
+    if (plan.newCats.length) kids.push(h("p", {class: "fine"}, (plan.newCats.length === 1 ? "Se creará la categoría " : "Se crearán las categorías ") +
+      plan.newCats.map(function(c){ return "«" + c.n + "»"; }).join(", ") + (plan.newCats.length === 1 ? ", que no existía en la libreta." : ", que no existían en la libreta.")));
+    if (plan.noGoal.length) kids.push(h("p", {class: "fine"}, "No tienes ninguna meta llamada " + plan.noGoal.map(function(x){ return "«" + x + "»"; }).join(" ni ") +
+      ". Esas aportaciones se guardarán como ahorro sin meta."));
+  }
+  if (plan.bad.length){
+    kids.push(h("p", {class: "form-err"}, plan.bad.length === 1 ? "1 línea no se puede leer y no se guardará:" : plan.bad.length + " líneas no se pueden leer y no se guardarán:"));
+    kids.push(h("div", {class: "raw-list"}, plan.bad.slice(0, 3).map(function(b){ return h("p", {class: "raw"}, b.raw, h("br"), h("i", null, b.why)); })));
+    if (plan.bad.length > 3) kids.push(h("p", {class: "fine"}, "Y " + (plan.bad.length - 3) + " más."));
+    kids.push(h("p", {class: "fine"}, "Revisa que el atajo escriba fecha;categoría;importe;moneda;concepto, separados por punto y coma. Estas líneas no volverán a aparecer."));
+  }
+  if (n){
+    kids.push(h("button", {class: "btn btn-primary btn-block", type: "button", id: "inboxSave", onclick: function(){ finishInbox(plan, true); }}, n === 1 ? "Guardar 1 apunte" : "Guardar " + n + " apuntes"));
+    kids.push(h("button", {class: "btn btn-ghost btn-block", type: "button", onclick: function(){ closeSheet(); }}, "Cancelar"));
+  } else kids.push(h("button", {class: "btn btn-ghost btn-block", type: "button", id: "inboxClose", onclick: function(){ finishInbox(plan, false); }}, "Cerrar"));
+  fill($("#sheetBody"), h("div", {class: "form"}, kids));
+  showSheet("Apuntes del atajo");
+}
+function finishInbox(plan, save){
+  var seen = Object.assign({}, S.inbox.seen), jobs = [], n = save ? plan.fresh.length : 0;
+  plan.bad.forEach(function(b){ seen[b.id] = 2; });
+  if (save){
+    if (plan.newCats.length){ plan.newCats.forEach(function(c){ S.settings.cats.push(c); }); jobs.push(saveSettings()); }
+    var byM = {};
+    plan.fresh.forEach(function(t){ seen[t.id] = 1; var mk = t.d.slice(0, 7); (byM[mk] = byM[mk] || []).push(t); });
+    Object.keys(byM).forEach(function(mk){
+      jobs.push(enqueue("m-" + mk, function(){ return retry(function(){
+        var map = Object.assign({}, S.raw[mk] || {});
+        byM[mk].forEach(function(t){ map[t.id] = txBody(t); });
+        return col.doc("m-" + mk).set({k: mk, tx: map});
+      }); }));
+    });
+  }
+  jobs.push(enqueue("inbox", function(){ return retry(function(){ return col.doc("inbox").set({seen: seen, last: Date.now()}); }); }));
+  closeSheet();
+  Promise.all(jobs).then(function(){
+    if (n) stampToast("Traídos", n === 1 ? "1 apunte del atajo" : n + " apuntes del atajo");
+  }, function(e){ toastErr(errMsg(e)); });
+}
+function shortcutList(){
+  var out = [];
+  catsOf("g").forEach(function(c){ out.push("Gasto: " + c.n); });
+  catsOf("i").forEach(function(c){ out.push("Ingreso: " + c.n); });
+  goalStats().forEach(function(x){ out.push("Ahorro: " + x.g.n); });
+  out.push("Ahorro: Sin meta");
+  return out.join("\n");
+}
+function copyShortcutList(){
+  var text = shortcutList();
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(function(){ stampToast("Copiada", "Pégala en la acción Texto del atajo"); }, function(){ showListSheet(text); });
+      return;
+    }
+  } catch (e){}
+  showListSheet(text);
+}
+function showListSheet(text){
+  st = {kind: "list"};
+  var ta = h("textarea", {id: "listText", class: "list-text", readonly: true, rows: "12", "aria-label": "Lista de categorías para el atajo"});
+  ta.value = text;
+  fill($("#sheetBody"), h("div", {class: "form"},
+    h("p", {class: "lead"}, "No se ha podido copiar sola. Mantén pulsado el texto, elige «Seleccionar todo» y luego «Copiar»."), ta,
+    h("button", {class: "btn btn-ghost btn-block", type: "button", onclick: function(){ closeSheet(); }}, "Cerrar")));
+  showSheet("Lista para el atajo");
 }
 
 /* ---------- Navegación ---------- */
@@ -1468,6 +1733,10 @@ function wire(){
   $("#bkLater").addEventListener("click", function(){ LS.set("bkSnooze", todayStr()); renderBanners(); });
   $("#bkFile").addEventListener("change", function(e){ var f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) readBackup(f); });
   $("#newGoal").addEventListener("click", function(){ openGoal(null); });
+  $("#copyList").addEventListener("click", copyShortcutList);
+  $("#inboxBtn").addEventListener("click", pickInbox);
+  $("#inboxChip").addEventListener("click", pickInbox);
+  $("#inboxFile").addEventListener("change", function(e){ var f = e.target.files && e.target.files[0]; if (f) readInbox(f); e.target.value = ""; });
   armButton($("#exClearBtn"), "Toca otra vez para borrarlos", doClearExamples);
   armButton($("#clearEx2"), "Toca otra vez para borrarlos", doClearExamples);
   $("#rateForm").addEventListener("submit", function(e){
