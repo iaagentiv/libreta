@@ -1585,8 +1585,9 @@ function parseInboxLine(line, plan, idx){
       goal = findGoalByName(key) || "";
       if (!goal && plan.noGoal.indexOf(pc.name) < 0) plan.noGoal.push(pc.name);
     }
+  } else if (!key){
+    plan.noCat++;
   } else {
-    if (!key) return {err: "Falta la categoría."};
     var c = findCatByName(t, key, plan);
     if (!c){
       var used = {}, colr = -1;
@@ -1602,7 +1603,7 @@ function parseInboxLine(line, plan, idx){
     n: parts.slice(noteFrom).join(";").trim().slice(0, 80), ts: date.ts || (Date.now() + idx), ex: false}};
 }
 function planInbox(text){
-  var plan = {fresh: [], dup: 0, bad: [], newCats: [], noGoal: [], lines: 0}, have = {}, occ = {};
+  var plan = {fresh: [], dup: 0, bad: [], newCats: [], noGoal: [], noCat: 0, lines: 0}, have = {}, occ = {};
   Object.keys(S.months).forEach(function(mk){ S.months[mk].forEach(function(t){ have[t.id] = 1; }); });
   String(text || "").replace(/^﻿/, "").split(/\r\n|\r|\n/).forEach(function(rawLine, idx){
     var line = rawLine.trim();
@@ -1612,10 +1613,9 @@ function planInbox(text){
     var id = "s" + cyrb53(line).toString(36) + (occ[line] > 1 ? "-" + occ[line] : "");
     var seen = S.inbox.seen[id];
     if (have[id] || seen === 1){ plan.dup++; return; }
-    if (seen === 2) return;
     var r = parseInboxLine(line, plan, idx);
-    if (r.err) plan.bad.push({id: id, raw: line, why: r.err});
-    else { r.tx.id = id; plan.fresh.push(r.tx); }
+    if (r.err){ if (seen !== 2) plan.bad.push({id: id, raw: line, why: r.err}); return; }
+    r.tx.id = id; plan.fresh.push(r.tx);
   });
   return plan;
 }
@@ -1653,6 +1653,8 @@ function openInboxReview(plan){
     if (sorted.length > 40) kids.push(h("p", {class: "fine"}, "Y " + (sorted.length - 40) + " más."));
     if (plan.newCats.length) kids.push(h("p", {class: "fine"}, (plan.newCats.length === 1 ? "Se creará la categoría " : "Se crearán las categorías ") +
       plan.newCats.map(function(c){ return "«" + c.n + "»"; }).join(", ") + (plan.newCats.length === 1 ? ", que no existía en la libreta." : ", que no existían en la libreta.")));
+    if (plan.noCat) kids.push(h("p", {class: "fine"}, (plan.noCat === 1 ? "1 apunte llega sin categoría y se guardará como «Sin categoría»." : plan.noCat + " apuntes llegan sin categoría y se guardarán como «Sin categoría».") +
+      " Puedes ponérsela después tocándolo en Apuntes."));
     if (plan.noGoal.length) kids.push(h("p", {class: "fine"}, "No tienes ninguna meta llamada " + plan.noGoal.map(function(x){ return "«" + x + "»"; }).join(" ni ") +
       ". Esas aportaciones se guardarán como ahorro sin meta."));
   }
