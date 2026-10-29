@@ -276,8 +276,8 @@ label.btn{cursor:pointer}
 /* Ajustes */
 .back{display:inline-flex;align-items:center;gap:2px;font-weight:700;color:var(--accent);padding:6px 0;font-size:14.5px}
 .back svg{width:18px;height:18px;stroke-width:2.2}
-.rate-form{display:flex;gap:10px;align-items:stretch;flex-wrap:wrap}
-.rate-row{display:flex;align-items:center;gap:8px;flex:1 1 220px;padding:0 14px;border:1.5px solid var(--line);border-radius:12px;background:var(--sheet);font-family:var(--f-mono);font-size:13px;font-stretch:87.5%}
+.rate-form{display:flex;flex-direction:column;gap:8px}
+.rate-row{display:flex;align-items:center;gap:8px;padding:0 14px;border:1.5px solid var(--line);border-radius:12px;background:var(--sheet);font-family:var(--f-mono);font-size:13px;font-stretch:87.5%}
 .rate-row input{flex:1;min-width:0;border:0;background:transparent;font-family:var(--f-display);font-size:18px;font-weight:700;padding:11px 0;outline:none;color:var(--ink)}
 .rate-row:focus-within{border-color:var(--accent)}
 .switch-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 14px;border:1.5px solid var(--line);border-radius:12px;background:var(--sheet);cursor:pointer}
@@ -331,8 +331,9 @@ input[role="switch"]:checked::after{transform:translateX(20px)}
 .amount-row input{flex:1;min-width:0;border:0;background:transparent;font-family:var(--f-display);font-weight:800;font-stretch:112%;font-size:40px;line-height:1.15;padding:4px 0;font-variant-numeric:tabular-nums;color:var(--ink);outline:none}
 .amount-row.small input{font-size:28px}
 .amount-row .unit{font-family:var(--f-mono);font-size:14px;color:var(--muted)}
-.cur{display:flex;flex:none;border:1.5px solid var(--line);border-radius:11px;overflow:hidden}
-.cur button{padding:9px 10px;font-family:var(--f-mono);font-size:12px;font-weight:600;font-stretch:87.5%;color:var(--muted)}
+.amount-row #txUnit{font-size:18px;font-weight:600;color:var(--ink-2);flex:none}
+.cur{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1.5px solid var(--line);border-radius:11px;overflow:hidden}
+.cur button{text-align:center;padding:10px 4px;font-family:var(--f-mono);font-size:12px;font-weight:600;font-stretch:87.5%;color:var(--muted)}
 .cur button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
 .conv{font-family:var(--f-mono);font-size:12px;color:var(--muted);font-stretch:87.5%;margin-top:-8px}
 .field{display:flex;flex-direction:column;gap:7px;min-width:0}
@@ -467,11 +468,13 @@ input[role="switch"]:checked::after{transform:translateX(20px)}
       <h1 id="ajTitle">Ajustes</h1>
     </div>
     <div class="block" style="border-top:0;padding-top:0">
-      <h2>Cambio de francos a euros</h2>
-      <label class="switch-row" for="rateAuto"><span><b>Actualizar solo cada día</b><span class="hint">Cambio oficial del Banco Central Europeo</span></span><input type="checkbox" id="rateAuto" role="switch"></label>
+      <h2>Cambio de divisas a euros</h2>
+      <label class="switch-row" for="rateAuto"><span><b>Actualizar solo cada día</b><span class="hint">Cambios oficiales del Banco Central Europeo</span></span><input type="checkbox" id="rateAuto" role="switch"></label>
       <form class="rate-form" id="rateForm" novalidate>
-        <label class="rate-row" for="rateInput"><span>1 CHF =</span><input id="rateInput" inputmode="decimal" autocomplete="off"><span>€</span></label>
-        <button class="btn btn-primary" type="submit" id="rateSave">Guardar</button>
+        <label class="rate-row" for="rate-CHF"><span>1 CHF =</span><input id="rate-CHF" inputmode="decimal" autocomplete="off"><span>€</span></label>
+        <label class="rate-row" for="rate-USD"><span>1 USD =</span><input id="rate-USD" inputmode="decimal" autocomplete="off"><span>€</span></label>
+        <label class="rate-row" for="rate-GBP"><span>1 GBP =</span><input id="rate-GBP" inputmode="decimal" autocomplete="off"><span>€</span></label>
+        <button class="btn btn-ghost" type="submit" id="rateSave">Guardar cambios puestos a mano</button>
       </form>
       <p class="hint" id="rateHint"></p>
     </div>
@@ -488,10 +491,10 @@ input[role="switch"]:checked::after{transform:translateX(20px)}
     <div class="block">
       <h2>Atajo de iPhone</h2>
       <p class="hint">Con un atajo puedes apuntar sin abrir la libreta. El atajo guarda cada apunte en un archivo de iCloud Drive y aquí lo traes a la libreta cuando quieras.</p>
-      <button class="btn btn-ghost btn-block" type="button" id="copyList">Copiar la lista de categorías para el atajo</button>
+      <button class="btn btn-ghost btn-block" type="button" id="copyList">Copiar las categorías para el atajo</button>
       <button class="btn btn-primary btn-block" type="button" id="inboxBtn">Traer apuntes del atajo</button>
       <p class="hint" id="inboxInfo"></p>
-      <p class="hint">El atajo escribe una línea por apunte, en este orden y separado por punto y coma: <span class="mono">fecha;categoría;importe;moneda;concepto</span></p>
+      <p class="hint">El atajo escribe una línea por apunte, en este orden y separado por punto y coma: <span class="mono">fecha;tipo;categoría;importe;moneda;concepto</span></p>
     </div>
     <div class="block">
       <h2>Tus datos</h2>
@@ -563,7 +566,11 @@ function NF(o){
 }
 const fEUR = NF({style: "currency", currency: "EUR"});
 const fEUR0 = NF({style: "currency", currency: "EUR", minimumFractionDigits: 0, maximumFractionDigits: 0});
-const fCHF = NF({style: "currency", currency: "CHF"});
+var CURS = ["EUR", "CHF", "USD", "GBP"], FX = ["CHF", "USD", "GBP"];
+var CUR_SYM = {EUR: "€", CHF: "CHF", USD: "$", GBP: "£"};
+var FMT = {};
+CURS.forEach(function(c){ FMT[c] = NF({style: "currency", currency: c}); });
+try { FMT.GBP = NF({style: "currency", currency: "GBP", currencyDisplay: "narrowSymbol"}); } catch (e){}
 const fPct = NF({style: "percent", maximumFractionDigits: 0});
 const fRate = NF({minimumFractionDigits: 2, maximumFractionDigits: 4});
 const fK = NF({maximumFractionDigits: 1});
@@ -573,7 +580,7 @@ const fCsv = NF({useGrouping: false, minimumFractionDigits: 2, maximumFractionDi
 function z(v){ v = Number(v) || 0; return Math.abs(v) < 0.005 ? 0 : v; }
 function eur(v){ return fEUR.format(z(v)); }
 function eur0(v){ v = Number(v) || 0; return fEUR0.format(Math.abs(v) < 0.5 ? 0 : v); }
-function money(v, c){ return (c === "CHF" ? fCHF : fEUR).format(z(v)); }
+function money(v, c){ return (FMT[c] || FMT.EUR).format(z(v)); }
 function pct(v){ return fPct.format(isFinite(v) ? v : 0); }
 function round2(v){ return Math.round(Number((v * 100).toFixed(6))) / 100; }
 function kShort(v){ var a = Math.abs(v); if (a < 0.5) return "0"; var s = v < 0 ? "−" : "+"; return a >= 1000 ? s + fK.format(a / 1000) + "k" : s + Math.round(a); }
@@ -640,9 +647,14 @@ var DEF_CATS = [
   {id: "ren", n: "Intereses y dividendos", t: "i", grp: "N", col: 2},
   {id: "oti", n: "Otros ingresos", t: "i", grp: "N", col: 11}
 ];
+var DEF_FX = {CHF: {r: DEF_RATE, d: DEF_RATE_DATE}, USD: {r: 0.893815, d: "2026-10-26"}, GBP: {r: 1.193033, d: "2026-10-26"}};
+function defFx(){ var o = {}; FX.forEach(function(c){ o[c] = {r: DEF_FX[c].r, d: DEF_FX[c].d, src: "inicial"}; }); return o; }
 function defaultSettings(){
-  return {v: 1, rate: DEF_RATE, rateDate: DEF_RATE_DATE, auto: true, rateSrc: "inicial", cats: DEF_CATS.map(function(c){ return Object.assign({b: null, bex: false}, c); })};
+  return {v: 2, auto: true, fx: defFx(), cats: DEF_CATS.map(function(c){ return Object.assign({b: null, bex: false}, c); })};
 }
+function curOk(c){ return CURS.indexOf(c) >= 0; }
+function rateOf(c){ if (c === "EUR") return 1; var x = S.settings.fx[c]; return x && x.r > 0 ? x.r : 1; }
+function toEur(a, c){ return c === "EUR" ? a : round2(a * rateOf(c)); }
 var NONE = {id: "__none", n: "Sin categoría", t: "g", grp: "D", col: 11, b: null, bex: false};
 
 /* ---------- Estado ---------- */
@@ -653,10 +665,15 @@ function colIdx(c){ c = Math.round(Number(c)); return isFinite(c) ? ((c % 12) + 
 function normSettings(d){
   var s = defaultSettings();
   if (!d || typeof d !== "object") return s;
-  if (typeof d.rate === "number" && isFinite(d.rate) && d.rate > 0) s.rate = d.rate;
-  if (typeof d.rateDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d.rateDate)) s.rateDate = d.rateDate;
   s.auto = d.auto !== false;
-  if (d.rateSrc === "ecb" || d.rateSrc === "manual") s.rateSrc = d.rateSrc;
+  var fx = (d.fx && typeof d.fx === "object") ? d.fx : {};
+  FX.forEach(function(c){
+    var x = fx[c];
+    if (!x && c === "CHF" && typeof d.rate === "number") x = {r: d.rate, d: d.rateDate, src: d.rateSrc};
+    if (x && typeof x.r === "number" && isFinite(x.r) && x.r > 0) s.fx[c] = {r: x.r,
+      d: (typeof x.d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(x.d)) ? x.d : s.fx[c].d,
+      src: (x.src === "ecb" || x.src === "manual") ? x.src : "inicial"};
+  });
   if (Array.isArray(d.cats) && d.cats.length){
     s.cats = d.cats.filter(function(c){ return c && typeof c.id === "string"; }).map(function(c){
       return {id: c.id, n: String(c.n || "Sin nombre").slice(0, 40), t: c.t === "i" ? "i" : "g", grp: c.grp === "D" ? "D" : "N", col: colIdx(c.col), b: (typeof c.b === "number" && c.b > 0) ? c.b : null, bex: !!c.bex};
@@ -678,7 +695,7 @@ function normTx(id, t, mk){
   var a = Number(t.a), b = Number(t.b);
   if (!(a > 0) || !isFinite(b)) return null;
   if (typeof t.d !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(t.d)) return null;
-  return {id: id, t: (t.t === "i" || t.t === "a") ? t.t : "g", a: a, c: t.c === "CHF" ? "CHF" : "EUR", b: b, cat: typeof t.cat === "string" ? t.cat : "", goal: typeof t.goal === "string" ? t.goal : "", d: t.d, n: typeof t.n === "string" ? t.n : "", ts: Number(t.ts) || 0, ex: !!t.ex, _mk: mk};
+  return {id: id, t: (t.t === "i" || t.t === "a") ? t.t : "g", a: a, c: curOk(t.c) ? t.c : "EUR", b: b, cat: typeof t.cat === "string" ? t.cat : "", goal: typeof t.goal === "string" ? t.goal : "", d: t.d, n: typeof t.n === "string" ? t.n : "", ts: Number(t.ts) || 0, ex: !!t.ex, _mk: mk};
 }
 
 /* ---------- Consultas ---------- */
@@ -881,7 +898,8 @@ function render(){
 function renderHeader(){
   $("#monthLabel").textContent = monthName(S.month, {month: "short", year: "numeric"});
   $("#monthLabel").setAttribute("aria-label", monthName(S.month) + (S.month === thisMonth() ? "" : ". Toca para volver al mes actual"));
-  $("#rateLine").textContent = "1 CHF = " + fRate.format(S.settings.rate) + " €";
+  var hc = FX.indexOf(LS.get("cur")) >= 0 ? LS.get("cur") : "CHF";
+  $("#rateLine").textContent = "1 " + hc + " = " + fRate.format(rateOf(hc)) + " €";
   $("#monthNav").hidden = !(S.view === "resumen" || S.view === "apuntes" || S.view === "presupuesto");
   $$(".tab").forEach(function(b){ if (b.getAttribute("data-go") === S.view) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current"); });
 }
@@ -1005,7 +1023,7 @@ function movRow(t){
   var color = isA ? (g ? cvar(g.col) : "var(--stamp)") : cvar(c.col);
   return h("button", {class: "mov", type: "button", onclick: function(){ openTx({tx: t}); }},
     dot(color, isA), h("span", {class: "c"}, title, t.ex ? exTag() : null), h("span", {class: "s"}, sub),
-    h("span", {class: "v " + t.t}, (t.t === "i" ? "+" : "−") + money(t.a, t.c), t.c === "CHF" ? h("small", null, "≈ " + eur(t.b)) : null));
+    h("span", {class: "v " + t.t}, (t.t === "i" ? "+" : "−") + money(t.a, t.c), t.c !== "EUR" ? h("small", null, "≈ " + eur(t.b)) : null));
 }
 function renderApuntes(){
   var mk = S.month, mname = monthName(mk, {month: "long"});
@@ -1087,7 +1105,7 @@ function renderAjustes(){
   var ae = document.activeElement;
   if (ae && ae.tagName === "INPUT" && ae.type !== "checkbox" && $("#v-ajustes").contains(ae)){ ajPending = true; return; }
   ajPending = false;
-  $("#rateInput").value = fIn4.format(S.settings.rate);
+  FX.forEach(function(c){ $("#rate-" + c).value = fIn4.format(rateOf(c)); });
   $("#rateAuto").checked = !!S.settings.auto;
   updRateHint();
   var lb = LS.get("lastBackup");
@@ -1169,7 +1187,7 @@ function openTx(o){
   o = o || {};
   var ex = o.tx || null;
   st = {kind: "tx", old: ex, id: ex ? ex.id : newId(), t: ex ? ex.t : (o.t || "g"),
-    c: ex ? ex.c : (LS.get("cur") === "CHF" ? "CHF" : "EUR"), cat: ex ? ex.cat : "", goal: ex ? ex.goal : (o.goal || ""),
+    c: ex ? ex.c : (curOk(LS.get("cur")) ? LS.get("cur") : "EUR"), cat: ex ? ex.cat : "", goal: ex ? ex.goal : (o.goal || ""),
     d: ex ? ex.d : (S.month === thisMonth() ? todayStr() : dateOf(S.month, new Date().getDate())),
     n: ex ? ex.n : "", amt: ex ? fIn2.format(ex.a) : "", armed: false};
   if (st.t !== "a"){ var c = catById(st.cat); if (!c || c.t !== st.t) st.cat = pickDefaultCat(st.t); }
@@ -1179,14 +1197,14 @@ function openTx(o){
 }
 function txRate(){
   var o = st && st.old, a = parseNum(st.amt, 2);
-  if (o && o.c === "CHF" && st.c === "CHF" && o.a > 0 && Math.abs(a - o.a) < 0.005) return o.b / o.a;
-  return S.settings.rate;
+  if (o && o.c === st.c && o.c !== "EUR" && o.a > 0 && Math.abs(a - o.a) < 0.005) return o.b / o.a;
+  return rateOf(st.c);
 }
 function updConv(){
   var el = $("#txConv"); if (!el || !st) return;
-  if (st.c !== "CHF"){ el.textContent = ""; el.hidden = true; return; }
+  if (st.c === "EUR"){ el.textContent = ""; el.hidden = true; return; }
   var a = parseNum(st.amt, 2), r = txRate();
-  el.textContent = (a > 0 ? "≈ " + eur(round2(a * r)) + " · " : "") + "1 CHF = " + fRate.format(r) + " €";
+  el.textContent = (a > 0 ? "≈ " + eur(round2(a * r)) + " · " : "") + "1 " + st.c + " = " + fRate.format(r) + " €";
   el.hidden = false;
 }
 function markQuick(){ $$("#sheetBody [data-off]").forEach(function(b){ b.setAttribute("aria-pressed", offsetDate(+b.getAttribute("data-off")) === st.d ? "true" : "false"); }); }
@@ -1208,12 +1226,14 @@ function buildTx(){
   }));
   var amount = h("input", {id: "txAmount", inputmode: "decimal", autocomplete: "off", placeholder: "0,00", "aria-label": "Importe", value: st.amt, enterkeyhint: "done"});
   amount.addEventListener("input", function(){ st.amt = amount.value; updConv(); hideErr("txErr"); });
-  var cur = h("div", {class: "cur", role: "group", "aria-label": "Moneda"}, ["EUR", "CHF"].map(function(k){
+  var unit = h("span", {class: "unit", id: "txUnit", "aria-hidden": "true"}, CUR_SYM[st.c]);
+  var cur = h("div", {class: "cur", role: "group", "aria-label": "Moneda"}, CURS.map(function(k){
     return h("button", {type: "button", id: "txCur-" + k, "aria-pressed": st.c === k ? "true" : "false", onclick: function(){
       st.c = k;
       $$("#sheetBody .cur button").forEach(function(b){ b.setAttribute("aria-pressed", b.id === "txCur-" + k ? "true" : "false"); });
+      unit.textContent = CUR_SYM[k];
       updConv();
-    }}, k === "EUR" ? "€ EUR" : "CHF");
+    }}, k);
   }));
   var picksLabel, picks;
   if (st.t === "a"){
@@ -1250,7 +1270,7 @@ function buildTx(){
     });
   }
   var form = h("form", {class: "form", id: "txForm", novalidate: true}, seg,
-    h("div", {class: "amount-row"}, amount, cur), h("p", {class: "conv", id: "txConv", hidden: true}),
+    h("div", {class: "amount-row"}, amount, unit), cur, h("p", {class: "conv", id: "txConv", hidden: true}),
     h("div", {class: "field"}, h("span", {class: "field-l"}, picksLabel), picks),
     h("div", {class: "row2"}, h("label", {class: "field grow", for: "txDate"}, h("span", {class: "field-l"}, "Fecha"), date), quick),
     h("label", {class: "field", for: "txNote"}, h("span", {class: "field-l"}, "Concepto (opcional)"), note),
@@ -1271,7 +1291,7 @@ function submitTx(e){
   if (st.t !== "a"){ var c = catById(st.cat); if (!c || c.t !== st.t) return showErr("txErr", st.t === "i" ? "Elige una fuente de ingreso." : "Elige una categoría."); }
   if (!col) return showErr("txErr", "No se puede guardar en este navegador. Abre la libreta en Safari normal o desde su icono.");
   var old = st.old;
-  var b = (old && old.c === st.c && Math.abs(old.a - a) < 0.005) ? old.b : (st.c === "CHF" ? round2(a * S.settings.rate) : a);
+  var b = (old && old.c === st.c && Math.abs(old.a - a) < 0.005) ? old.b : toEur(a, st.c);
   var tx = {id: st.id, t: st.t, a: a, c: st.c, b: b, cat: st.t === "a" ? "" : st.cat, goal: st.t === "a" && S.goals[st.goal] ? st.goal : "",
     d: st.d, n: (st.n || "").trim().slice(0, 80), ts: old ? (old.ts || Date.now()) : Date.now(), ex: false};
   LS.set("cur", tx.c); if (tx.t !== "a") LS.set("cat." + tx.t, tx.cat);
@@ -1500,12 +1520,22 @@ function parseLooseDate(str){
 }
 function parseCur(x){
   var f = fold(x).replace(/[\s.]/g, "");
-  if (!f || f.length > 12) return null;
+  if (!f || f.length > 14) return null;
   if (/chf|franc/.test(f) || /^s?fr$/.test(f)) return "CHF";
+  if (/usd|dolar|dollar|\$/.test(f)) return "USD";
+  if (/gbp|libra|pound|esterlin|£/.test(f)) return "GBP";
   if (/eur|€/.test(f) || f === "e") return "EUR";
   return null;
 }
-var TYPEW = {gasto: "g", gastos: "g", ingreso: "i", ingresos: "i", ahorro: "a", ahorros: "a", aportacion: "a"};
+function curInText(x){
+  var f = fold(x);
+  if (/chf|franc|\bs?fr\b/.test(f)) return "CHF";
+  if (/\$|usd|dolar|dollar/.test(f)) return "USD";
+  if (/£|gbp|libra|pound/.test(f)) return "GBP";
+  if (/€|eur/.test(f)) return "EUR";
+  return null;
+}
+var TYPEW = {gasto: "g", gastos: "g", ingreso: "i", ingresos: "i", ahorro: "a", ahorros: "a", aportacion: "a", meta: "a"};
 function parseCatField(x){
   var raw = String(x || "").trim(), k = raw.indexOf(":");
   if (k > 0){ var w = TYPEW[fold(raw.slice(0, k))]; if (w) return {t: w, name: raw.slice(k + 1).trim()}; }
@@ -1522,7 +1552,8 @@ function findGoalByName(key){
   for (var i = 0; i < ids.length; i++) if (fold(S.goals[ids[i]].n) === key) return ids[i];
   return null;
 }
-function inboxDefCur(){ return LS.get("cur") === "CHF" ? "CHF" : "EUR"; }
+function cleanAmt(x){ return String(x || "").replace(/chf|usd|gbp|us\$|euros?|eur|francos?|s?fr\.?|d[oó]lar(es)?|libras?|[€$£]/gi, ""); }
+function inboxDefCur(){ return curOk(LS.get("cur")) ? LS.get("cur") : "EUR"; }
 function parseInboxLine(line, plan, idx){
   var parts = line.split(";").map(function(p){ return p.trim(); });
   if (fold(parts[0]) === "libreta") parts.shift();
@@ -1531,13 +1562,16 @@ function parseInboxLine(line, plan, idx){
   else if (/\d/.test(parts[0] || "")) return {err: "No se reconoce la fecha."};
   else date = {d: todayStr(), ts: null};
   if (parts.length < 2) return {err: "Faltan la categoría o el importe."};
-  var pc = parseCatField(parts[0]), amtField = parts[1], curField = parts.length > 2 ? parts[2] : "";
-  var cur = parseCur(curField), noteFrom = 3;
+  var off = 0, pc, tw = TYPEW[fold(parts[0])];
+  if (tw && parts.length >= 3 && !(parseNum(cleanAmt(parts[1]), 2) > 0)){ pc = {t: tw, name: parts[1]}; off = 1; }
+  else pc = parseCatField(parts[0]);
+  var amtField = parts[1 + off] || "", curField = parts.length > 2 + off ? parts[2 + off] : "";
+  var cur = parseCur(curField), noteFrom = 3 + off;
   if (!cur){
-    cur = /chf|franc|\bs?fr\b/i.test(amtField) ? "CHF" : (/€|eur/i.test(amtField) ? "EUR" : inboxDefCur());
-    if (curField !== "") noteFrom = 2;
+    cur = curInText(amtField) || inboxDefCur();
+    if (curField !== "") noteFrom = 2 + off;
   }
-  var a = parseNum(amtField.replace(/chf|euros?|eur|francos?|s?fr\.?|€/gi, ""), 2);
+  var a = parseNum(cleanAmt(amtField), 2);
   if (!(a > 0) || a >= 1e9) return {err: "No se reconoce el importe."};
   var key = fold(pc.name), t = pc.t, cat = "", goal = "";
   if (!t){
@@ -1564,7 +1598,7 @@ function parseInboxLine(line, plan, idx){
     }
     cat = c.id;
   }
-  return {tx: {t: t, a: a, c: cur, b: cur === "CHF" ? round2(a * S.settings.rate) : a, cat: cat, goal: goal, d: date.d,
+  return {tx: {t: t, a: a, c: cur, b: toEur(a, cur), cat: cat, goal: goal, d: date.d,
     n: parts.slice(noteFrom).join(";").trim().slice(0, 80), ts: date.ts || (Date.now() + idx), ex: false}};
 }
 function planInbox(text){
@@ -1596,7 +1630,7 @@ function previewRow(t, plan){
   var color = isA ? (g ? cvar(g.col) : "var(--stamp)") : cvar(c ? c.col : 11);
   return h("div", {class: "mov static"}, dot(color, isA), h("span", {class: "c"}, t.n || label),
     h("span", {class: "s"}, dayName(t.d) + " · " + (t.n ? label : (t.t === "i" ? "Ingreso" : isA ? "Ahorro" : "Gasto"))),
-    h("span", {class: "v " + t.t}, (t.t === "i" ? "+" : "−") + money(t.a, t.c), t.c === "CHF" ? h("small", null, "≈ " + eur(t.b)) : null));
+    h("span", {class: "v " + t.t}, (t.t === "i" ? "+" : "−") + money(t.a, t.c), t.c !== "EUR" ? h("small", null, "≈ " + eur(t.b)) : null));
 }
 function pickInbox(){ var i = $("#inboxFile"); i.value = ""; i.click(); }
 function readInbox(file){
@@ -1626,7 +1660,7 @@ function openInboxReview(plan){
     kids.push(h("p", {class: "form-err"}, plan.bad.length === 1 ? "1 línea no se puede leer y no se guardará:" : plan.bad.length + " líneas no se pueden leer y no se guardarán:"));
     kids.push(h("div", {class: "raw-list"}, plan.bad.slice(0, 3).map(function(b){ return h("p", {class: "raw"}, b.raw, h("br"), h("i", null, b.why)); })));
     if (plan.bad.length > 3) kids.push(h("p", {class: "fine"}, "Y " + (plan.bad.length - 3) + " más."));
-    kids.push(h("p", {class: "fine"}, "Revisa que el atajo escriba fecha;categoría;importe;moneda;concepto, separados por punto y coma. Estas líneas no volverán a aparecer."));
+    kids.push(h("p", {class: "fine"}, "Revisa que el atajo escriba fecha;tipo;categoría;importe;moneda;concepto, separados por punto y coma. Estas líneas no volverán a aparecer."));
   }
   if (n){
     kids.push(h("button", {class: "btn btn-primary btn-block", type: "button", id: "inboxSave", onclick: function(){ finishInbox(plan, true); }}, n === 1 ? "Guardar 1 apunte" : "Guardar " + n + " apuntes"));
@@ -1657,18 +1691,14 @@ function finishInbox(plan, save){
   }, function(e){ toastErr(errMsg(e)); });
 }
 function shortcutList(){
-  var out = [];
-  catsOf("g").forEach(function(c){ out.push("Gasto: " + c.n); });
-  catsOf("i").forEach(function(c){ out.push("Ingreso: " + c.n); });
-  goalStats().forEach(function(x){ out.push("Ahorro: " + x.g.n); });
-  out.push("Ahorro: Sin meta");
-  return out.join("\n");
+  var names = function(t){ return catsOf(t).map(function(c){ return c.n; }); };
+  return JSON.stringify({Gasto: names("g"), Ingreso: names("i"), Ahorro: goalStats().map(function(x){ return x.g.n; }).concat(["Sin meta"])}, null, 1);
 }
 function copyShortcutList(){
   var text = shortcutList();
   try {
     if (navigator.clipboard && navigator.clipboard.writeText){
-      navigator.clipboard.writeText(text).then(function(){ stampToast("Copiada", "Pégala en la acción Texto del atajo"); }, function(){ showListSheet(text); });
+      navigator.clipboard.writeText(text).then(function(){ stampToast("Copiadas", "Pégalas en la acción Texto del atajo"); }, function(){ showListSheet(text); });
       return;
     }
   } catch (e){}
@@ -1676,12 +1706,12 @@ function copyShortcutList(){
 }
 function showListSheet(text){
   st = {kind: "list"};
-  var ta = h("textarea", {id: "listText", class: "list-text", readonly: true, rows: "12", "aria-label": "Lista de categorías para el atajo"});
+  var ta = h("textarea", {id: "listText", class: "list-text", readonly: true, rows: "12", "aria-label": "Categorías para el atajo"});
   ta.value = text;
   fill($("#sheetBody"), h("div", {class: "form"},
     h("p", {class: "lead"}, "No se ha podido copiar sola. Mantén pulsado el texto, elige «Seleccionar todo» y luego «Copiar»."), ta,
     h("button", {class: "btn btn-ghost btn-block", type: "button", onclick: function(){ closeSheet(); }}, "Cerrar")));
-  showSheet("Lista para el atajo");
+  showSheet("Categorías para el atajo");
 }
 
 /* ---------- Navegación ---------- */
@@ -1741,18 +1771,27 @@ function wire(){
   armButton($("#clearEx2"), "Toca otra vez para borrarlos", doClearExamples);
   $("#rateForm").addEventListener("submit", function(e){
     e.preventDefault();
-    var v = parseNum($("#rateInput").value, 4);
-    if (!(v > 0) || v > 100){ toastErr("Escribe un cambio válido, por ejemplo 1,0817."); return; }
-    S.settings.rate = v; S.settings.rateDate = todayStr(); S.settings.auto = false; S.settings.rateSrc = "manual";
-    $("#rateInput").blur(); render();
-    saveSettings().then(function(){ stampToast("Guardado", "1 CHF = " + fRate.format(v) + " €"); }, function(err){ toastErr(errMsg(err)); });
+    var upd = {}, bad = null;
+    FX.forEach(function(c){
+      var v = parseNum($("#rate-" + c).value, 4);
+      if (!(v > 0) || v > 100){ if (!bad) bad = c; return; }
+      if (fIn4.format(v) !== fIn4.format(rateOf(c))) upd[c] = v;
+    });
+    if (bad){ toastErr("Escribe un cambio válido para " + bad + ", por ejemplo " + fIn4.format(rateOf(bad)) + "."); return; }
+    var keys = Object.keys(upd);
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    if (!keys.length){ stampToast("Sin cambios", "No has cambiado ningún valor"); render(); return; }
+    keys.forEach(function(c){ S.settings.fx[c] = {r: upd[c], d: todayStr(), src: "manual"}; });
+    S.settings.auto = false;
+    render();
+    saveSettings().then(function(){ stampToast("Guardado", keys.map(function(c){ return "1 " + c + " = " + fRate.format(upd[c]) + " €"; }).join(" · ")); }, function(err){ toastErr(errMsg(err)); });
   });
   $("#rateAuto").addEventListener("change", function(e){
     S.settings.auto = !!e.target.checked;
     updRateHint();
     saveSettings().catch(function(err){ toastErr(errMsg(err)); });
     if (S.settings.auto) updateRate(true).then(function(ok){
-      if (ok) stampToast("Actualizado", "1 CHF = " + fRate.format(S.settings.rate) + " € · BCE");
+      if (ok) stampToast("Actualizado", "CHF, USD y GBP · cambio del BCE");
       else toastErr("No se ha podido consultar el cambio ahora. Se volverá a intentar al abrir la libreta.");
     });
   });
@@ -1764,24 +1803,34 @@ function wire(){
   document.addEventListener("keydown", function(e){ if (e.key === "Escape" && !$("#sheet").hidden) closeSheet(); });
 }
 
-/* ---------- Cambio automático CHF→EUR (BCE, vía Frankfurter) ---------- */
-var RATE_URLS = ["https://api.frankfurter.dev/v2/providers/ECB/rate/CHF/EUR", "https://api.frankfurter.dev/v1/latest?base=CHF&symbols=EUR"];
+/* ---------- Cambio automático a euros (BCE, vía Frankfurter): CHF, USD y GBP en una sola consulta ---------- */
+var RATE_URLS = ["https://api.frankfurter.dev/v2/providers/ECB/rates?base=EUR&quotes=CHF,USD,GBP", "https://api.frankfurter.dev/v1/latest?base=EUR&symbols=CHF,USD,GBP"];
 var rateBusy = false;
 function updRateHint(){
   var el = $("#rateHint"); if (!el) return;
-  var s = S.settings, txt;
-  if (!s.auto) txt = "Cambio puesto a mano el " + dmy(s.rateDate) + ". Activa «Actualizar solo cada día» para usar el del Banco Central Europeo.";
-  else if (s.rateSrc === "ecb") txt = "Cambio oficial del BCE del " + dmy(s.rateDate) + ". Se actualiza solo cuando abres la libreta con conexión.";
-  else txt = "Cambio del " + dmy(s.rateDate) + ". Se pondrá el del BCE la próxima vez que abras la libreta con conexión.";
+  var s = S.settings, txt, last = FX.map(function(c){ return s.fx[c].d; }).sort().pop();
+  var allEcb = FX.every(function(c){ return s.fx[c].src === "ecb"; });
+  if (!s.auto) txt = "Ahora usas cambios puestos a mano. Activa «Actualizar solo cada día» para usar los del Banco Central Europeo.";
+  else if (allEcb) txt = "Cambios oficiales del BCE del " + dmy(last) + ". Se actualizan solos cuando abres la libreta con conexión.";
+  else txt = "Se pondrán los cambios del BCE la próxima vez que abras la libreta con conexión.";
   var err = Number(LS.get("rateErr")) || 0, ok = Number(LS.get("rateCheck")) || 0;
   if (s.auto && err > ok) txt += " La última vez no se pudo consultar; se volverá a intentar.";
   el.textContent = txt + " Si escribes un cambio a mano, la actualización automática se desactiva. Los apuntes ya hechos conservan el cambio con el que se apuntaron.";
 }
-function parseRate(o){
-  if (!o || typeof o !== "object") return null;
-  var r = typeof o.rate === "number" ? o.rate : (o.rates && typeof o.rates.EUR === "number" ? o.rates.EUR : NaN);
-  var d = (typeof o.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(o.date)) ? o.date : null;
-  return (r > 0.3 && r < 3 && d) ? {rate: r, date: d} : null;
+/* La respuesta da cuántas unidades de cada divisa vale 1 €; la libreta guarda cuántos € vale 1 unidad. */
+function parseRates(o){
+  var map = {}, date = null;
+  if (Array.isArray(o)){
+    o.forEach(function(x){ if (x && typeof x.date === "string" && (!date || x.date > date)) date = x.date; });
+    o.forEach(function(x){ if (x && x.date === date && x.base === "EUR" && typeof x.quote === "string" && typeof x.rate === "number") map[x.quote] = x.rate; });
+  } else if (o && typeof o === "object" && o.rates && typeof o.rates === "object"){
+    date = o.date;
+    Object.keys(o.rates).forEach(function(k){ if (typeof o.rates[k] === "number") map[k] = o.rates[k]; });
+  }
+  if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  var out = {}, n = 0;
+  FX.forEach(function(c){ var q = map[c]; if (q > 0){ var r = 1 / q; if (r > 0.01 && r < 100){ out[c] = Number(r.toFixed(6)); n++; } } });
+  return n ? {rates: out, date: date} : null;
 }
 function fetchRate(i){
   if (i >= RATE_URLS.length) return Promise.reject(new Error("sin cambio"));
@@ -1789,7 +1838,7 @@ function fetchRate(i){
   var timer = setTimeout(function(){ if (ctl) ctl.abort(); }, 8000);
   return fetch(RATE_URLS[i], {cache: "no-store", signal: ctl ? ctl.signal : undefined})
     .then(function(r){ if (!r.ok) throw new Error("http " + r.status); return r.json(); })
-    .then(function(o){ clearTimeout(timer); var x = parseRate(o); if (!x) throw new Error("formato"); return x; })
+    .then(function(o){ clearTimeout(timer); var x = parseRates(o); if (!x) throw new Error("formato"); return x; })
     .catch(function(){ clearTimeout(timer); return fetchRate(i + 1); });
 }
 function updateRate(force){
@@ -1800,8 +1849,13 @@ function updateRate(force){
   return fetchRate(0).then(function(x){
     LS.set("rateCheck", String(Date.now()));
     if (!S.settings.auto) return false;
-    if (Math.abs(x.rate - S.settings.rate) < 1e-7 && x.date === S.settings.rateDate && S.settings.rateSrc === "ecb"){ updRateHint(); return true; }
-    S.settings.rate = x.rate; S.settings.rateDate = x.date; S.settings.rateSrc = "ecb";
+    var changed = false;
+    FX.forEach(function(c){
+      var r = x.rates[c], cur = S.settings.fx[c];
+      if (!r) return;
+      if (!cur || Math.abs(cur.r - r) > 1e-7 || cur.d !== x.date || cur.src !== "ecb"){ S.settings.fx[c] = {r: r, d: x.date, src: "ecb"}; changed = true; }
+    });
+    if (!changed){ updRateHint(); return true; }
     render();
     return saveSettings().then(function(){ return true; }, function(){ return true; });
   }, function(){
